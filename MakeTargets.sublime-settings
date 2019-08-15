@@ -1,3 +1,4 @@
 {
-   "verbose": false,
+   // Should MakeTargets remember the last target that ran
+   "cache_last": true,
 }
