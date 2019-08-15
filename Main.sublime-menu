@@ -1,0 +1,38 @@
+[
+   {
+      "id": "preferences",
+      "children":
+      [
+         {
+            "caption": "Package Settings",
+            "id": "package-settings",
+            "children":
+            [
+               {
+                  "caption": "Make Targets",
+                  "children":
+                  [
+                     {
+                        "caption": "Settings",
+                        "command": "edit_settings",
+                        "args": {
+                           "base_file": "${packages}/Make Targets/MakeTargets.sublime-settings",
+                           "default": "{\n$0\n}\n"
+                        }
+                     },
+                     {"caption": "-"},
+                     {
+                        "caption": "Key Bindings",
+                        "command": "edit_settings",
+                        "args": {
+                           "base_file": "${packages}/Make Targets/Default.sublime-keymap",
+                           "default": "{\n$0\n}\n"
+                        }
+                     }
+                  ]
+               }
+            ]
+         }
+      ]
+   }
+]
