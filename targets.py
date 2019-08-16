@@ -32,8 +32,8 @@ def Variables(window=None):
 def Expand(variable, window=None):
    return sublime.expand_variables(variable, Variables(window))
 
-def Settings():
-   return sublime.load_settings('MakeTargets.sublime-settings')
+def Settings(file='MakeTargets.sublime-settings'):
+   return sublime.load_settings(file)
 
 def RunCommand(command):
    cwd = Variables()['project_path']
@@ -55,8 +55,11 @@ def GetTargets(makefile=None):
 class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def __init__(self, edit):
       sublime_plugin.WindowCommand.__init__(self, edit)
-      self.build = sublime.load_settings('MakeTargets.sublime-build')
+      self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
+
+      settings = Settings()
+      settings.add_on_change('show_last_cmd_status_bar', self.on_show_last_change)
 
    @property
    def targets(self):
@@ -69,15 +72,22 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          update_phantoms_only=True
       ))
 
-      if 'make' in target:
-         target.replace('make', '')
+      cmd = 'make {}'.format(target).strip()
 
       self.window.run_command('exec', dict(
-         cmd='make {}'.format(target),
+         cmd=cmd,
          file_regex=args.get('file_regex', FILE_REGEX),
          syntax=args.get('syntax', SYNTAX),
          working_dir=args.get('working_dir', Expand(WORKING_DIR, self.window))
       ))
+
+      settings = Settings()
+
+      if settings.get('show_last_cmd_status_bar', False):
+         value = settings.get('status_bar_format', '{command}')
+         if '{command}' not in value:
+            value += '{command}'
+         self.window.active_view().set_status('mt_last_target', value.format(command=cmd))
 
    def show_panel(self):
       panel_args = {
@@ -135,3 +145,8 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          targets = GetTargets()
          targets.insert(0, '<<no target>>')
          return targets
+
+   # override
+   def on_show_last_change(self):
+      if not Settings().get('show_last_cmd_status_bar', False):
+         self.window.active_view().erase_status('mt_last_target')
