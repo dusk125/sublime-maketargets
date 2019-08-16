@@ -13,5 +13,13 @@
     * If a target is found starting with any of these prefixes, that target
     *    will be ignored and not shown as a buildable target.
     */
-   "ignored_target_prefixes": ["$", "."]
+   "ignored_target_prefixes": ["$", "."],
+   /*
+    * This regular expression will be used to figure out which lines of the
+    *   Makefile are actual targets.
+    * 
+    * WARNING: Changing this value can cause non-target lines to appear in the
+    *             target list.
+    */
+   "target_regex": "(.+)\\s*:\\s{1}"
 }
