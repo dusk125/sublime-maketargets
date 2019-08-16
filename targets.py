@@ -23,6 +23,11 @@ def plugin_loaded():
       with open(dest_file, 'w') as f:
          json.dump(CANNED, f, indent=2)
 
+def plugin_unloaded():
+   settings = Settings()
+   settings.clear_on_change('show_last_cmd_status_bar')
+   settings.clear_on_change('ignored_target_prefixes')
+
 def Window(window=None):
    return window if window else sublime.active_window()
 
@@ -46,20 +51,41 @@ def GetTargets(makefile=None):
    if not makefile:
       makefile = Expand('${project_path}/Makefile')
 
-   proccess = RunCommand('grep \'^[^#[:space:]].*:\' {}'.format(makefile))
-   stdout, _ = proccess.communicate()
+   targets = None
+   if os.path.isfile(makefile):
+      proccess = RunCommand('grep \'^[^#[:space:]].*:\' {}'.format(makefile))
+      stdout, _ = proccess.communicate()
 
-   targets = [line.split(':')[0].strip() for line in stdout.split('\n') if line.strip() and not (line.startswith('$') or line.startswith('.'))]
+      targets = []
+      for line in stdout.split('\n'):
+         line = line.strip()
+         if line and not any([line.startswith(ignore) for ignore in Settings().get('ignored_target_prefixes', [])]):
+            targets.append(line.split(':')[0].strip())
+
    return targets
+
+def PanelArg(variant='', caption='MakeTargets'):
+   return dict(
+      args=dict(
+         build_system='Packages/User/MakeTargets.sublime-build',
+         choice_build_system=True,
+         choice_variant=True,
+         variant=variant
+      ),
+      caption=caption,
+      command='build'
+   )
 
 class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def __init__(self, edit):
       sublime_plugin.WindowCommand.__init__(self, edit)
       self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
+      self.need_regen = True
 
       settings = Settings()
       settings.add_on_change('show_last_cmd_status_bar', self.on_show_last_change)
+      settings.add_on_change('ignored_target_prefixes', self.on_ignore_prefixes_change)
 
    @property
    def targets(self):
@@ -92,31 +118,14 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def show_panel(self):
       panel_args = {
          'items': [
-            dict(
-               args=dict(
-                  build_system='Packages/User/MakeTargets.sublime-build',
-                  choice_build_system=True,
-                  choice_variant=True,
-                  variant=target.get('name', '')
-               ),
-               caption='MakeTargets - {}'.format(target.get('make_target', '')),
-               command='build'
+            PanelArg(
+               variant=target.get('name', ''),
+               caption='MakeTargets - {}'.format(target.get('make_target', ''))
             )
             for target in self.build.get('variants')
          ]
       }
-      panel_args['items'].insert(0,
-         dict(
-            args=dict(
-               build_system='Packages/User/MakeTargets.sublime-build',
-               choice_build_system=True,
-               choice_variant=True,
-               variant=''
-            ),
-            caption='MakeTargets',
-            command='build'
-         )
-      )
+      panel_args['items'].insert(0, PanelArg())
       self.window.run_command('quick_panel', panel_args)
 
    def run(self, **args):
@@ -126,7 +135,8 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          ))
          return
 
-      if self.targets and not self.build.get('variants', None):
+      if self.need_regen or (self.targets and not self.build.get('variants', None)):
+         self.need_regen = False
          self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
          sublime.save_settings('MakeTargets.sublime-build')
          self.show_panel()
@@ -150,3 +160,8 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def on_show_last_change(self):
       if not Settings().get('show_last_cmd_status_bar', False):
          self.window.active_view().erase_status('mt_last_target')
+
+   # override
+   def on_ignore_prefixes_change(self):
+      self._targets = None
+      self.need_regen = True

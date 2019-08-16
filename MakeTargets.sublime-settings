@@ -8,5 +8,10 @@
     *
     * If '{command}' is not specified, it will be appended to the given string.
     */
-   "status_bar_format": "Last Make Command: {command}"
+   "status_bar_format": "Last Make Command: {command}",
+   /*
+    * If a target is found starting with any of these prefixes, that target
+    *    will be ignored and not shown as a buildable target.
+    */
+   "ignored_target_prefixes": ["$", "."]
 }
