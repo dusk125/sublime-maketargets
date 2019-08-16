@@ -5,7 +5,6 @@ SYNTAX = 'Packages/Makefile/Make Output.sublime-syntax'
 WORKING_DIR = '${folder:${project_path:${file_path}}}'
 CANNED = {
    'target': 'make_targets',
-   'is_build_sys': True,
    'file_regex': FILE_REGEX,
    'working_dir': WORKING_DIR,
    'selector': 'source.makefile',
@@ -51,68 +50,88 @@ def GetTargets(makefile=None):
    stdout, _ = proccess.communicate()
 
    targets = [line.split(':')[0].strip() for line in stdout.split('\n') if line.strip() and not (line.startswith('$') or line.startswith('.'))]
-
    return targets
 
 class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def __init__(self, edit):
       sublime_plugin.WindowCommand.__init__(self, edit)
       self.build = sublime.load_settings('MakeTargets.sublime-build')
-      self.last_target = None
-      self.targets = None
+      self._targets = None
 
-   def build_now(self, targets_list, args={}):
-      print('building', targets_list, args)
+   @property
+   def targets(self):
+      if not self._targets:
+         self._targets = GetTargets()
+      return self._targets
+
+   def build_now(self, target, args={}):
       self.window.run_command('exec', dict(
          update_phantoms_only=True
       ))
 
-      if not targets_list.startswith('make'):
-         targets_list = 'make {}'.format(targets_list)
+      if 'make' in target:
+         target.replace('make', '')
 
       self.window.run_command('exec', dict(
-         cmd=targets_list,
+         cmd='make {}'.format(target),
          file_regex=args.get('file_regex', FILE_REGEX),
          syntax=args.get('syntax', SYNTAX),
          working_dir=args.get('working_dir', Expand(WORKING_DIR, self.window))
       ))
-      self.last_target = targets_list
-
-   def on_done(self, index):
-      if index > -1:
-         target = self.targets[index].replace('MakeTargets', '').replace('|', '').strip()
-
-         self.build_now(targets_list=target)
 
    def show_panel(self):
-      self.targets = ['MakeTargets | {}'.format(target) for target in self.targets]
-      self.targets.insert(0, 'MakeTargets')
-      self.window.show_quick_panel(self.targets, self.on_done)
+      panel_args = {
+         'items': [
+            dict(
+               args=dict(
+                  build_system='Packages/User/MakeTargets.sublime-build',
+                  choice_build_system=True,
+                  choice_variant=True,
+                  variant=target.get('name', '')
+               ),
+               caption='MakeTargets - {}'.format(target.get('make_target', '')),
+               command='build'
+            )
+            for target in self.build.get('variants')
+         ]
+      }
+      panel_args['items'].insert(0,
+         dict(
+            args=dict(
+               build_system='Packages/User/MakeTargets.sublime-build',
+               choice_build_system=True,
+               choice_variant=True,
+               variant=''
+            ),
+            caption='MakeTargets',
+            command='build'
+         )
+      )
+      self.window.run_command('quick_panel', panel_args)
 
    def run(self, **args):
-      print('command', args)
       if args.get('kill'):
          self.window.run_command('exec', dict(
             kill=True
          ))
          return
 
-      if not args.get('is_build_sys', False) and not self.build.get('variants', None):
-         self.targets = GetTargets()
-         self.build.set('variants', [dict(name=target, new_target=target) for target in self.targets])
+      if self.targets and not self.build.get('variants', None):
+         self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
          sublime.save_settings('MakeTargets.sublime-build')
-
-      if 'new_target' in args or self.last_target:
-         target = args.get('new_target', self.last_target)
-      else:
          self.show_panel()
          return
 
+      target = args.get('make_target', '')
+      if target == '<<no target>>':
+         target = ''
       self.build_now(target, args)
 
    def input(self, args):
-      return self.NewTarget()
+      return self.MakeTarget()
 
-   class NewTarget(sublime_plugin.ListInputHandler):
+   class MakeTarget(sublime_plugin.ListInputHandler):
       def list_items(self):
-         return GetTargets()
+         targets = GetTargets()
+         targets.insert(0, '<<no target>>')
+         return targets
