@@ -142,19 +142,15 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          self.show_panel()
          return
 
+      if args.get('palette', False):
+         self.show_panel()
+         return
+
       target = args.get('make_target', '')
       if target == '<<no target>>':
          target = ''
+
       self.build_now(target, args)
-
-   def input(self, args):
-      return self.MakeTarget()
-
-   class MakeTarget(sublime_plugin.ListInputHandler):
-      def list_items(self):
-         targets = GetTargets()
-         targets.insert(0, '<<no target>>')
-         return targets
 
    # override
    def on_show_last_change(self):

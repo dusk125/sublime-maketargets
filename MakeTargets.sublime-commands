@@ -1,6 +1,7 @@
 [
    {
-      "caption": "Make Targets",
-      "command": "make_targets"
+      "caption": "MakeTargets: Set and Run",
+      "command": "make_targets",
+      "args": {"palette": true}
    }
 ]
