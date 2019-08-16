@@ -1,4 +1,4 @@
-import os, sublime, sublime_plugin, subprocess, json, shutil
+import os, sublime, sublime_plugin, subprocess, json, re
 
 FILE_REGEX = '^(..[^:\n]*):([0-9]+):?([0-9]+)?:? (.*)'
 SYNTAX = 'Packages/Makefile/Make Output.sublime-syntax'
@@ -13,13 +13,12 @@ CANNED = {
    'cancel': {'kill': True},
    'variants': []
 }
-
-REMOVE_THIS = True
+TARGET_REGEX = '(.+)\s*:\s{1}'
 
 def plugin_loaded():
    build_file = 'MakeTargets.build-template'
    dest_file = '{}/User/MakeTargets.sublime-build'.format(sublime.packages_path())
-   if REMOVE_THIS or not os.path.isfile(dest_file):
+   if not os.path.isfile(dest_file):
       with open(dest_file, 'w') as f:
          json.dump(CANNED, f, indent=2)
 
@@ -27,6 +26,7 @@ def plugin_unloaded():
    settings = Settings()
    settings.clear_on_change('show_last_cmd_status_bar')
    settings.clear_on_change('ignored_target_prefixes')
+   settings.clear_on_change('target_regex')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -39,30 +39,6 @@ def Expand(variable, window=None):
 
 def Settings(file='MakeTargets.sublime-settings'):
    return sublime.load_settings(file)
-
-def RunCommand(command):
-   cwd = Variables()['project_path']
-
-   si = subprocess.STARTUPINFO()
-   si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-   return subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, cwd=cwd, startupinfo=si)
-
-def GetTargets(makefile=None):
-   if not makefile:
-      makefile = Expand('${project_path}/Makefile')
-
-   targets = None
-   if os.path.isfile(makefile):
-      proccess = RunCommand('grep \'^[^#[:space:]].*:\' {}'.format(makefile))
-      stdout, _ = proccess.communicate()
-
-      targets = []
-      for line in stdout.split('\n'):
-         line = line.strip()
-         if line and not any([line.startswith(ignore) for ignore in Settings().get('ignored_target_prefixes', [])]):
-            targets.append(line.split(':')[0].strip())
-
-   return targets
 
 def PanelArg(variant='', caption='MakeTargets'):
    return dict(
@@ -79,18 +55,31 @@ def PanelArg(variant='', caption='MakeTargets'):
 class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def __init__(self, edit):
       sublime_plugin.WindowCommand.__init__(self, edit)
-      self.build = Settings('MakeTargets.sublime-build')
-      self._targets = None
-      self.need_regen = True
-
       settings = Settings()
       settings.add_on_change('show_last_cmd_status_bar', self.on_show_last_change)
       settings.add_on_change('ignored_target_prefixes', self.on_ignore_prefixes_change)
+      settings.add_on_change('target_regex', self.on_target_regex_change)
+
+      self.build = Settings('MakeTargets.sublime-build')
+      self._targets = None
+      self.need_regen = True
+      self.target_regex = re.compile(settings.get('target_regex', TARGET_REGEX))
 
    @property
    def targets(self):
       if not self._targets:
-         self._targets = GetTargets()
+         targets = []
+         makefile = Expand('${project_path}/Makefile')
+
+         if os.path.isfile(makefile):
+            with open(makefile, 'r') as f:
+               for line in f.readlines():
+                  if self.target_regex.search(line):
+                     line = line.strip()
+                     if line and not any([line.startswith(ignore) for ignore in Settings().get('ignored_target_prefixes', [])]):
+                        targets.append(line.split(':')[0].strip())
+
+         self._targets = targets
       return self._targets
 
    def build_now(self, target, args={}):
@@ -161,3 +150,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def on_ignore_prefixes_change(self):
       self._targets = None
       self.need_regen = True
+
+   # override
+   def on_target_regex_change(self):
+      self.target_regex = re.compile(Settings().get('target_regex', TARGET_REGEX))
