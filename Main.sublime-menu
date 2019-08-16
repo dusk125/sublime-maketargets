@@ -16,7 +16,7 @@
                         "caption": "Settings",
                         "command": "edit_settings",
                         "args": {
-                           "base_file": "${packages}/Make Targets/MakeTargets.sublime-settings",
+                           "base_file": "${packages}/MakeTargets/MakeTargets.sublime-settings",
                            "default": "{\n$0\n}\n"
                         }
                      },
@@ -25,7 +25,7 @@
                         "caption": "Key Bindings",
                         "command": "edit_settings",
                         "args": {
-                           "base_file": "${packages}/Make Targets/Default.sublime-keymap",
+                           "base_file": "${packages}/MakeTargets/Default.sublime-keymap",
                            "default": "{\n$0\n}\n"
                         }
                      }

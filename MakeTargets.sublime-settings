@@ -1,3 +1,17 @@
 {
-   "verbose": false,
+   /*
+    * Should the last make command be shown in the status bar.
+    */
+   "show_last_cmd_status_bar": true,
+   /*
+    * The value here is the format of the last command on the status bar.
+    *
+    * If '{command}' is not specified, it will be appended to the given string.
+    */
+   "status_bar_format": "Last Make Command: {command}",
+   /*
+    * If a target is found starting with any of these prefixes, that target
+    *    will be ignored and not shown as a buildable target.
+    */
+   "ignored_target_prefixes": ["$", "."]
 }
