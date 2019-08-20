@@ -11,7 +11,8 @@ CANNED = {
    'syntax': SYNTAX,
    'keyfiles': ['Makefile', 'makefile'],
    'cancel': {'kill': True},
-   'variants': []
+   'variants': [],
+   'makefile': None
 }
 TARGET_REGEX = '(.+)\s*:\s{1}'
 
@@ -66,13 +67,16 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       self.target_regex = re.compile(settings.get('target_regex', TARGET_REGEX))
 
    @property
+   def makefile(self):
+      return os.path.join(Expand('${project_path}', self.window), 'Makefile')
+
+   @property
    def targets(self):
       if not self._targets:
          targets = []
-         makefile = Expand('${project_path}/Makefile')
 
-         if os.path.isfile(makefile):
-            with open(makefile, 'r') as f:
+         if os.path.isfile(self.makefile):
+            with open(self.makefile, 'r') as f:
                for line in f.readlines():
                   if self.target_regex.search(line):
                      line = line.strip()
@@ -120,6 +124,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def regen_targets(self):
       self.need_regen = False
       self._targets = None
+      self.build.set('makefile', self.makefile)
       self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
       sublime.save_settings('MakeTargets.sublime-build')
 
@@ -134,7 +139,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          self.regen_targets()
          return
 
-      if self.need_regen or (self.targets and not self.build.get('variants', None)):
+      if self.need_regen or (self.targets and not self.build.get('variants', None) or (self.makefile != self.build.get('makefile', None))):
          self.regen_targets()
          self.show_panel()
          return
