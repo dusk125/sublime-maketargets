@@ -11,7 +11,8 @@ CANNED = {
    'syntax': SYNTAX,
    'keyfiles': ['Makefile', 'makefile'],
    'cancel': {'kill': True},
-   'variants': []
+   'variants': [],
+   'makefile': None
 }
 TARGET_REGEX = '(.+)\s*:\s{1}'
 
@@ -120,6 +121,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def regen_targets(self):
       self.need_regen = False
       self._targets = None
+      self.build.set('makefile', Expand('${project_path}/Makefile', self.window))
       self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
       sublime.save_settings('MakeTargets.sublime-build')
 
