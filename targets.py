@@ -117,6 +117,12 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       panel_args['items'].insert(0, PanelArg())
       self.window.run_command('quick_panel', panel_args)
 
+   def regen_targets(self):
+      self.need_regen = False
+      self._targets = None
+      self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
+      sublime.save_settings('MakeTargets.sublime-build')
+
    def run(self, **args):
       if args.get('kill'):
          self.window.run_command('exec', dict(
@@ -124,10 +130,12 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          ))
          return
 
+      if args.get('regen', False):
+         self.regen_targets()
+         return
+
       if self.need_regen or (self.targets and not self.build.get('variants', None)):
-         self.need_regen = False
-         self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
-         sublime.save_settings('MakeTargets.sublime-build')
+         self.regen_targets()
          self.show_panel()
          return
 
