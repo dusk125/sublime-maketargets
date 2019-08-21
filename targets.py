@@ -11,7 +11,8 @@ CANNED = {
    'syntax': SYNTAX,
    'keyfiles': ['Makefile', 'makefile'],
    'cancel': {'kill': True},
-   'variants': []
+   'variants': [],
+   'makefile': None
 }
 TARGET_REGEX = '(.+)\s*:\s{1}'
 
@@ -27,6 +28,10 @@ def plugin_unloaded():
    settings.clear_on_change('show_last_cmd_status_bar')
    settings.clear_on_change('ignored_target_prefixes')
    settings.clear_on_change('target_regex')
+   settings.clear_on_change('regen_on_save')
+   settings.clear_on_change('hide_dup_targets')
+   settings.clear_on_change('phony_name')
+   settings.clear_on_change('sort_targets')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -59,26 +64,50 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       settings.add_on_change('show_last_cmd_status_bar', self.on_show_last_change)
       settings.add_on_change('ignored_target_prefixes', self.on_ignore_prefixes_change)
       settings.add_on_change('target_regex', self.on_target_regex_change)
+      settings.add_on_change('hide_dup_targets', self.on_hide_dup_targets_change)
+      settings.add_on_change('phony_name', self.on_phony_name_change)
+      settings.add_on_change('sort_targets', self.on_sort_targets_change)
 
       self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
       self.need_regen = True
       self.target_regex = re.compile(settings.get('target_regex', TARGET_REGEX))
+      self.hide_dups = settings.get('hide_dup_targets', False)
+      self.phony = self.load_phony()
+      self.sort_targets = settings.get('sort_targets', False)
+
+   def load_phony(self):
+      phony = Settings().get('phony_name', None)
+      if phony and not phony.startswith('.'):
+         phony = '.' + phony
+      return phony
+
+   @property
+   def makefile(self):
+      return os.path.join(Expand('${project_path}', self.window), 'Makefile')
 
    @property
    def targets(self):
       if not self._targets:
          targets = []
-         makefile = Expand('${project_path}/Makefile')
 
-         if os.path.isfile(makefile):
-            with open(makefile, 'r') as f:
+         if os.path.isfile(self.makefile):
+            with open(self.makefile, 'r') as f:
                for line in f.readlines():
-                  if self.target_regex.search(line):
+                  if self.phony:
+                     if line.startswith(self.phony):
+                        line = line.split(':', 1)[1].strip()
+                        targets = line.split(' ')
+                        break
+                  elif self.target_regex.search(line):
                      line = line.strip()
                      if line and not any([line.startswith(ignore) for ignore in Settings().get('ignored_target_prefixes', [])]):
-                        targets.append(line.split(':')[0].strip())
+                        target = line.split(':')[0].strip()
+                        if not (self.hide_dups and target in targets):
+                           targets.append(target)
 
+         if self.sort_targets:
+            targets.sort()
          self._targets = targets
       return self._targets
 
@@ -117,6 +146,13 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       panel_args['items'].insert(0, PanelArg())
       self.window.run_command('quick_panel', panel_args)
 
+   def regen_targets(self, makefile=None):
+      self.need_regen = False
+      self._targets = None
+      self.build.set('makefile', makefile if makefile else self.makefile)
+      self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
+      sublime.save_settings('MakeTargets.sublime-build')
+
    def run(self, **args):
       if args.get('kill'):
          self.window.run_command('exec', dict(
@@ -124,10 +160,12 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          ))
          return
 
-      if self.need_regen or (self.targets and not self.build.get('variants', None)):
-         self.need_regen = False
-         self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
-         sublime.save_settings('MakeTargets.sublime-build')
+      if args.get('regen', False):
+         self.regen_targets(args.get('makefile', None))
+         return
+
+      if self.need_regen or (self.targets and not self.build.get('variants', None) or (self.makefile != self.build.get('makefile', None))):
+         self.regen_targets()
          self.show_panel()
          return
 
@@ -148,9 +186,39 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
 
    # override
    def on_ignore_prefixes_change(self):
-      self._targets = None
       self.need_regen = True
 
    # override
    def on_target_regex_change(self):
       self.target_regex = re.compile(Settings().get('target_regex', TARGET_REGEX))
+
+   # override
+   def on_hide_dup_targets_change(self):
+      self.hide_dups = Settings().get('hide_dup_targets', False)
+
+   # override
+   def on_phony_name_change(self):
+      self.phony = self.load_phony()
+      self.need_regen = True
+
+   # override
+   def on_sort_targets_change(self):
+      self.sort_targets = Settings().get('sort_targets', False)
+      self.need_regen = True
+
+class MakeTargetsEventListener(sublime_plugin.EventListener):
+   def __init__(self):
+      sublime_plugin.EventListener.__init__(self)
+
+      settings = Settings()
+      settings.add_on_change('regen_on_save', self.on_regen_on_save_change)
+
+      self.regen_on_save = settings.get('regen_on_save', False)
+
+   # override
+   def on_regen_on_save_change(self):
+      self.regen_on_save = Settings().get('regen_on_save', False)
+
+   def on_post_save_async(self, view):
+      if self.regen_on_save and view.file_name().endswith('Makefile'):
+         view.window().run_command('make_targets', {'regen': True, 'makefile': view.file_name()})

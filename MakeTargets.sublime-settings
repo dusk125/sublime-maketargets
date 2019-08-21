@@ -21,5 +21,38 @@
     * WARNING: Changing this value can cause non-target lines to appear in the
     *             target list.
     */
-   "target_regex": "(.+)\\s*:\\s{1}"
+   "target_regex": "(.+)\\s*:\\s{1}",
+   /*
+    * If enabled, if a Makefile is saved, the targets will be regenerated
+    *    using that Makefile.
+    */
+   "regen_on_save": true,
+   /*
+    * If enabled, multiple targets with the same name will be shown as a
+    *   single target.
+    */
+   "hide_dup_targets": true,
+   /*
+    * If given, it should be the name of a phony Make target that will tell
+    *   MakeTargets what the targets should be. The '.' prefix is not needed
+    *   and will be ignored.
+    *
+    * NOTE:
+    *   If 'phony_name' is not null and not empty,
+    *      'target_regex' will be ignored.
+    *
+    * Example.
+    *   Makefile
+    *     ...
+    *     .MAKE_TARGETS all clean <etc...>
+    *     ...
+    *   MakeTargets.sublime-settings
+    *     "phony_name": "MAKE_TARGETS"
+    */
+   "phony_name": null,
+   /*
+    * If enabled, the targets will be sorted in alphabetical order.
+    * If disabled, the targets will appear in the order they were parsed in.
+    */
+   "sort_targets": true
 }

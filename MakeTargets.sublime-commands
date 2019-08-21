@@ -3,5 +3,10 @@
       "caption": "MakeTargets: Set and Run",
       "command": "make_targets",
       "args": {"palette": true}
+   },
+   {
+      "caption": "MakeTargets: Regen Targets",
+      "command": "make_targets",
+      "args": {"palette": true, "regen": true}
    }
 ]
