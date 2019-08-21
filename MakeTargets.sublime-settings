@@ -49,5 +49,10 @@
     *   MakeTargets.sublime-settings
     *     "phony_name": "MAKE_TARGETS"
     */
-   "phony_name": null
+   "phony_name": null,
+   /*
+    * If enabled, the targets will be sorted in alphabetical order.
+    * If disabled, the targets will appear in the order they were parsed in.
+    */
+   "sort_targets": true
 }

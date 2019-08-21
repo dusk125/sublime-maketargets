@@ -31,6 +31,7 @@ def plugin_unloaded():
    settings.clear_on_change('regen_on_save')
    settings.clear_on_change('hide_dup_targets')
    settings.clear_on_change('phony_name')
+   settings.clear_on_change('sort_targets')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -65,6 +66,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       settings.add_on_change('target_regex', self.on_target_regex_change)
       settings.add_on_change('hide_dup_targets', self.on_hide_dup_targets_change)
       settings.add_on_change('phony_name', self.on_phony_name_change)
+      settings.add_on_change('sort_targets', self.on_sort_targets_change)
 
       self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
@@ -72,6 +74,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       self.target_regex = re.compile(settings.get('target_regex', TARGET_REGEX))
       self.hide_dups = settings.get('hide_dup_targets', False)
       self.phony = self.load_phony()
+      self.sort_targets = settings.get('sort_targets', False)
 
    def load_phony(self):
       phony = Settings().get('phony_name', None)
@@ -103,6 +106,8 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
                         if not (self.hide_dups and target in targets):
                            targets.append(target)
 
+         if self.sort_targets:
+            targets.sort()
          self._targets = targets
       return self._targets
 
@@ -194,6 +199,11 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    # override
    def on_phony_name_change(self):
       self.phony = self.load_phony()
+      self.need_regen = True
+
+   # override
+   def on_sort_targets_change(self):
+      self.sort_targets = Settings().get('sort_targets', False)
       self.need_regen = True
 
 class MakeTargetsEventListener(sublime_plugin.EventListener):
