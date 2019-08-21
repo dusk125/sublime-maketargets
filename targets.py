@@ -28,6 +28,7 @@ def plugin_unloaded():
    settings.clear_on_change('show_last_cmd_status_bar')
    settings.clear_on_change('ignored_target_prefixes')
    settings.clear_on_change('target_regex')
+   settings.clear_on_change('regen_on_save')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -121,10 +122,10 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       panel_args['items'].insert(0, PanelArg())
       self.window.run_command('quick_panel', panel_args)
 
-   def regen_targets(self):
+   def regen_targets(self, makefile=None):
       self.need_regen = False
       self._targets = None
-      self.build.set('makefile', self.makefile)
+      self.build.set('makefile', makefile if makefile else self.makefile)
       self.build.set('variants', [dict(name=target, make_target=target) for target in self.targets])
       sublime.save_settings('MakeTargets.sublime-build')
 
@@ -136,7 +137,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          return
 
       if args.get('regen', False):
-         self.regen_targets()
+         self.regen_targets(args.get('makefile', None))
          return
 
       if self.need_regen or (self.targets and not self.build.get('variants', None) or (self.makefile != self.build.get('makefile', None))):
@@ -161,9 +162,26 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
 
    # override
    def on_ignore_prefixes_change(self):
-      self._targets = None
       self.need_regen = True
 
    # override
    def on_target_regex_change(self):
       self.target_regex = re.compile(Settings().get('target_regex', TARGET_REGEX))
+
+
+class MakeTargetsEventListener(sublime_plugin.EventListener):
+   def __init__(self):
+      sublime_plugin.EventListener.__init__(self)
+
+      settings = Settings()
+      settings.add_on_change('regen_on_save', self.on_regen_on_save_change)
+
+      self.regen_on_save = settings.get('regen_on_save', False)
+
+   # override
+   def on_regen_on_save_change(self):
+      self.regen_on_save = Settings().get('regen_on_save', False)
+
+   def on_post_save_async(self, view):
+      if self.regen_on_save and view.file_name().endswith('Makefile'):
+         view.window().run_command('make_targets', {'regen': True, 'makefile': view.file_name()})

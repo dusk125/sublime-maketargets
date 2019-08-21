@@ -21,5 +21,10 @@
     * WARNING: Changing this value can cause non-target lines to appear in the
     *             target list.
     */
-   "target_regex": "(.+)\\s*:\\s{1}"
+   "target_regex": "(.+)\\s*:\\s{1}",
+   /*
+    * If enabled, if a Makefile is saved, the targets will be regenerated
+    *    using that Makefile.
+    */
+   "regen_on_save": true
 }
