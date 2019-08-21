@@ -31,5 +31,23 @@
     * If enabled, multiple targets with the same name will be shown as a
     *   single target.
     */
-   "hide_dup_targets": true
+   "hide_dup_targets": true,
+   /*
+    * If given, it should be the name of a phony Make target that will tell
+    *   MakeTargets what the targets should be. The '.' prefix is not needed
+    *   and will be ignored.
+    *
+    * NOTE:
+    *   If 'phony_name' is not null and not empty,
+    *      'target_regex' will be ignored.
+    *
+    * Example.
+    *   Makefile
+    *     ...
+    *     .MAKE_TARGETS all clean <etc...>
+    *     ...
+    *   MakeTargets.sublime-settings
+    *     "phony_name": "MAKE_TARGETS"
+    */
+   "phony_name": null
 }

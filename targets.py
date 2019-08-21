@@ -30,6 +30,7 @@ def plugin_unloaded():
    settings.clear_on_change('target_regex')
    settings.clear_on_change('regen_on_save')
    settings.clear_on_change('hide_dup_targets')
+   settings.clear_on_change('phony_name')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -63,12 +64,20 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       settings.add_on_change('ignored_target_prefixes', self.on_ignore_prefixes_change)
       settings.add_on_change('target_regex', self.on_target_regex_change)
       settings.add_on_change('hide_dup_targets', self.on_hide_dup_targets_change)
+      settings.add_on_change('phony_name', self.on_phony_name_change)
 
       self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
       self.need_regen = True
       self.target_regex = re.compile(settings.get('target_regex', TARGET_REGEX))
       self.hide_dups = settings.get('hide_dup_targets', False)
+      self.phony = self.load_phony()
+
+   def load_phony(self):
+      phony = Settings().get('phony_name', None)
+      if phony and not phony.startswith('.'):
+         phony = '.' + phony
+      return phony
 
    @property
    def makefile(self):
@@ -82,7 +91,12 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          if os.path.isfile(self.makefile):
             with open(self.makefile, 'r') as f:
                for line in f.readlines():
-                  if self.target_regex.search(line):
+                  if self.phony:
+                     if line.startswith(self.phony):
+                        line = line.split(':', 1)[1].strip()
+                        targets = line.split(' ')
+                        break
+                  elif self.target_regex.search(line):
                      line = line.strip()
                      if line and not any([line.startswith(ignore) for ignore in Settings().get('ignored_target_prefixes', [])]):
                         target = line.split(':')[0].strip()
@@ -176,6 +190,11 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    # override
    def on_hide_dup_targets_change(self):
       self.hide_dups = Settings().get('hide_dup_targets', False)
+
+   # override
+   def on_phony_name_change(self):
+      self.phony = self.load_phony()
+      self.need_regen = True
 
 class MakeTargetsEventListener(sublime_plugin.EventListener):
    def __init__(self):
