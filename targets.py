@@ -29,6 +29,7 @@ def plugin_unloaded():
    settings.clear_on_change('ignored_target_prefixes')
    settings.clear_on_change('target_regex')
    settings.clear_on_change('regen_on_save')
+   settings.clear_on_change('hide_dup_targets')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -61,11 +62,13 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       settings.add_on_change('show_last_cmd_status_bar', self.on_show_last_change)
       settings.add_on_change('ignored_target_prefixes', self.on_ignore_prefixes_change)
       settings.add_on_change('target_regex', self.on_target_regex_change)
+      settings.add_on_change('hide_dup_targets', self.on_hide_dup_targets_change)
 
       self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
       self.need_regen = True
       self.target_regex = re.compile(settings.get('target_regex', TARGET_REGEX))
+      self.hide_dups = settings.get('hide_dup_targets', False)
 
    @property
    def makefile(self):
@@ -82,7 +85,9 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
                   if self.target_regex.search(line):
                      line = line.strip()
                      if line and not any([line.startswith(ignore) for ignore in Settings().get('ignored_target_prefixes', [])]):
-                        targets.append(line.split(':')[0].strip())
+                        target = line.split(':')[0].strip()
+                        if not (self.hide_dups and target in targets):
+                           targets.append(target)
 
          self._targets = targets
       return self._targets
@@ -168,6 +173,9 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def on_target_regex_change(self):
       self.target_regex = re.compile(Settings().get('target_regex', TARGET_REGEX))
 
+   # override
+   def on_hide_dup_targets_change(self):
+      self.hide_dups = Settings().get('hide_dup_targets', False)
 
 class MakeTargetsEventListener(sublime_plugin.EventListener):
    def __init__(self):

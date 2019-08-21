@@ -26,5 +26,10 @@
     * If enabled, if a Makefile is saved, the targets will be regenerated
     *    using that Makefile.
     */
-   "regen_on_save": true
+   "regen_on_save": true,
+   /*
+    * If enabled, multiple targets with the same name will be shown as a
+    *   single target.
+    */
+   "hide_dup_targets": true
 }
