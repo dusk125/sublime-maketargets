@@ -32,6 +32,7 @@ def plugin_unloaded():
    settings.clear_on_change('hide_dup_targets')
    settings.clear_on_change('phony_name')
    settings.clear_on_change('sort_targets')
+   settings.clear_on_change('job_number')
 
 def Window(window=None):
    return window if window else sublime.active_window()
@@ -67,6 +68,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       settings.add_on_change('hide_dup_targets', self.on_hide_dup_targets_change)
       settings.add_on_change('phony_name', self.on_phony_name_change)
       settings.add_on_change('sort_targets', self.on_sort_targets_change)
+      settings.add_on_change('job_number', self.on_job_number_change)
 
       self.build = Settings('MakeTargets.sublime-build')
       self._targets = None
@@ -75,6 +77,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
       self.hide_dups = settings.get('hide_dup_targets', False)
       self.phony = self.load_phony()
       self.sort_targets = settings.get('sort_targets', False)
+      self.job_num = settings.get('job_number', None)
 
    def load_phony(self):
       phony = Settings().get('phony_name', None)
@@ -116,7 +119,7 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
          update_phantoms_only=True
       ))
 
-      cmd = 'make {}'.format(target).strip()
+      cmd = 'make -j{} {}'.format(self.job_num if self.job_num else '', target).strip()
 
       self.window.run_command('exec', dict(
          cmd=cmd,
@@ -205,6 +208,10 @@ class MakeTargetsCommand(sublime_plugin.WindowCommand):
    def on_sort_targets_change(self):
       self.sort_targets = Settings().get('sort_targets', False)
       self.need_regen = True
+
+   # override
+   def on_job_number_change(self):
+      self.job_num = Settings().get('job_number', None)
 
 class MakeTargetsEventListener(sublime_plugin.EventListener):
    def __init__(self):

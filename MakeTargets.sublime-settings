@@ -54,5 +54,12 @@
     * If enabled, the targets will be sorted in alphabetical order.
     * If disabled, the targets will appear in the order they were parsed in.
     */
-   "sort_targets": true
+   "sort_targets": true,
+   /*
+    * This setting will tell Make the maximum number of worker jobs it can
+    *   spawn during the building process.
+    * If this value is null, Make will not limit the number of jobs.
+    * See the '-j' Make option.
+    */
+   "job_number": 1
 }
